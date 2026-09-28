@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>شبكة التوزيع والملاحة المباشرة - شركة الغذاء النوعي</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.88);
+            --panel-border: rgba(255, 255, 255, 0.12);
+            --primary-green: #10b981;
+            --accent-blue: #38bdf8;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { display: flex; height: 100vh; background-color: var(--bg-dark); color: var(--text-main); overflow: hidden; }
+
+        /* ===== Sidebar Glassmorphism ===== */
+        #sidebar {
+            width: 420px;
+            flex-shrink: 0;
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-left: 1px solid var(--panel-border);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #064e3b 0%, #047857 100%);
+            padding: 20px 18px;
+            text-align: center;
+            border-bottom: 1px solid var(--panel-border);
+            flex-shrink: 0;
+        }
+        .header img {
+            max-height: 55px;
+            margin-bottom: 10px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.3));
+        }
+        .header h1 { font-size: 1.25rem; font-weight: 900; color: #ffffff; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .header p { font-size: 0.8rem; color: #a7f3d0; margin-top: 4px; font-weight: 600; }
+
+        .lock-badge {
+            display: inline-block;
+            margin-top: 8px;
+            font-size: 0.66rem;
+            font-weight: 700;
+            color: #a7f3d0;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(167, 243, 208, 0.25);
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        /* ===== Stats Bar ===== */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 12px 15px;
+            background: rgba(15, 23, 42, 0.6);
+            border-bottom: 1px solid var(--panel-border);
+            flex-shrink: 0;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card .val { font-size: 1.1rem; font-weight: 800; color: var(--accent-blue); }
+        .stat-card .lbl { font-size: 0.72rem; color: var(--text-muted); }
+
+        /* ===== Factory Card ===== */
+        .factory-card {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.06) 100%);
+            border: 1.5px solid var(--primary-green);
+            border-radius: 12px;
+            padding: 13px 15px;
+            margin: 14px 15px 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+        .factory-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(16, 185, 129, 0.25); }
+        .factory-icon {
+            background: var(--primary-green);
+            color: #064e3b;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);
+        }
+        .factory-coords { font-size: 0.68rem; color: #64748b; font-weight: 600; direction: ltr; text-align: right; margin-top: 3px; }
+
+        /* ===== Filter Pills ===== */
+        .filter-container {
+            padding: 0 15px 10px 15px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        .filter-pill {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(15, 23, 42, 0.5);
+            color: var(--text-muted);
+            padding: 6px 13px;
+            border-radius: 20px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            font-family: 'Cairo', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-pill.active, .filter-pill:hover {
+            background: var(--primary-green);
+            color: #064e3b;
+            border-color: var(--primary-green);
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        /* ===== Locations List ===== */
+        .locations-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 15px 18px 15px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-green) rgba(0, 0, 0, 0.2);
+        }
+        .locations-list::-webkit-scrollbar { width: 6px; }
+        .locations-list::-webkit-scrollbar-thumb { background: var(--primary-green); border-radius: 3px; }
+
+        .location-item {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-right: 4px solid #94a3b8;
+            padding: 13px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+        .location-item:hover, .location-item.selected {
+            background: rgba(30, 41, 59, 0.95);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateX(-4px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .location-item.south { border-right-color: #ef4444; }
+        .location-item.east { border-right-color: #f97316; }
+        .location-item.north { border-right-color: #3b82f6; }
+        .location-item.west { border-right-color: #a855f7; }
+        .location-item.alkharj { border-right-color: #14b8a6; }
+
+        .loc-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .loc-title { font-weight: 800; font-size: 0.96rem; color: #f1f5f9; }
+        .loc-code { font-size: 0.7rem; background: rgba(255, 255, 255, 0.1); padding: 2px 8px; border-radius: 6px; color: var(--accent-blue); font-weight: 700; direction: ltr; }
+        .loc-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .loc-meta span { display: inline-flex; align-items: center; gap: 4px; }
+        .loc-meta b { color: #cbd5e1; font-weight: 700; }
+
+        /* ===== Action Buttons ===== */
+        .action-group { display: grid; grid-template-columns: 1fr 1.2fr; gap: 8px; margin-top: 10px; }
+        .btn-act {
+            padding: 9px 8px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            font-family: 'Cairo', sans-serif;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .btn-act.route { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); border: 1px solid rgba(56, 189, 248, 0.3); }
+        .btn-act.route:hover { background: var(--accent-blue); color: #0f172a; }
+        .btn-act.gmaps { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
+        .btn-act.gmaps:hover { background: var(--primary-green); color: #064e3b; }
+
+        .place-link {
+            display: block;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-top: 7px;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .place-link:hover { color: var(--accent-blue); }
+
+        /* ===== Map Area ===== */
+        #map { flex: 1; height: 100%; z-index: 1; }
+
+        /* ===== Custom Pin ===== */
+        .custom-pin {
+            width: 34px;
+            height: 34px;
+            border-radius: 50% 50% 50% 0;
+            position: absolute;
+            transform: rotate(-45deg);
+            left: 50%;
+            top: 50%;
+            margin: -20px 0 0 -17px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+            border: 2px solid #ffffff;
+        }
+        .custom-pin::after {
+            content: '';
+            width: 11px;
+            height: 11px;
+            background: #ffffff;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin: -5.5px 0 0 -5.5px;
+            border-radius: 50%;
+        }
+        .custom-pin.pulse::before {
+            content: '';
+            position: absolute;
+            inset: -12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.25);
+            animation: pulse 1.6s ease-out infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.6); opacity: 0.9; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        .pin-factory { background: #10b981; }
+        .pin-south { background: #ef4444; }
+        .pin-east { background: #f97316; }
+        .pin-north { background: #3b82f6; }
+        .pin-west { background: #a855f7; }
+        .pin-alkharj { background: #14b8a6; }
+
+        .leaflet-popup-content-wrapper { border-radius: 12px; }
+        .leaflet-control-layers { text-align: right; direction: rtl; font-family: 'Cairo', sans-serif; }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 768px) {
+            body { flex-direction: column-reverse; }
+            #sidebar { width: 100%; height: 52vh; border-left: none; border-top: 1px solid var(--panel-border); box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5); }
+            #map { height: 48vh; width: 100%; flex: none; }
+            .header { padding: 12px 14px; }
+            .header h1 { font-size: 1.05rem; }
+            .header p { font-size: 0.7rem; }
+            .factory-card { margin: 10px 12px 8px 12px; padding: 10px 12px; }
+            .filter-container { padding: 0 12px 8px 12px; }
+            .locations-list { padding: 0 12px 14px 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div class="header">
+            <img src="https://kamahtech-sfood.odoo.com/web/image/website/1/logo?unique=557ed86" alt="شعار شركة الغذاء النوعي">
+            <h1><i class="fa-solid fa-route"></i> الغذاء النوعي للتجارة</h1>
+            <p>شبكة التوزيع والملاحة الميدانية المباشرة</p>
+            <div class="lock-badge"><i class="fa-solid fa-lock"></i> نسخة للعرض والملاحة فقط — إدارة اللوجستيك</div>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat-card"><div class="val" id="total-count">0</div><div class="lbl">إجمالي الفروع</div></div>
+            <div class="stat-card"><div class="val">5</div><div class="lbl">محاور التوزيع</div></div>
+            <div class="stat-card"><div class="val" style="color:#10b981;">100%</div><div class="lbl">تغطية النطاق</div></div>
+        </div>
+
+        <div class="factory-card" onclick="focusFactory()">
+            <div class="factory-icon"><i class="fa-solid fa-industry"></i></div>
+            <div style="flex:1; min-width:0;">
+                <strong style="color:#34d399; font-size:0.94rem; display:block;">مصنع الغذاء النوعي للمنتجات الغذائية</strong>
+                <p style="font-size:0.72rem; color:#94a3b8;">مركز التوزيع الرئيسي | انقر للتكبير</p>
+                <div class="factory-coords">24.5623, 46.8712</div>
+            </div>
+            <a href="https://maps.app.goo.gl/FZF5MhUrrzaoiuQh7" target="_blank" rel="noopener" onclick="event.stopPropagation();"
+               style="color:#38bdf8; font-size:1.05rem;" title="فتح موقع المصنع في خرائط جوجل"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+        </div>
+
+        <div class="filter-container">
+            <button class="filter-pill active" onclick="filterDirection('all', this)">الكل</button>
+            <button class="filter-pill" onclick="filterDirection('شمال', this)">الشمال</button>
+            <button class="filter-pill" onclick="filterDirection('شرق', this)">الشرق</button>
+            <button class="filter-pill" onclick="filterDirection('جنوب', this)">الجنوب</button>
+            <button class="filter-pill" onclick="filterDirection('غرب', this)">الغرب</button>
+            <button class="filter-pill" onclick="filterDirection('الخرج', this)">الخرج</button>
+        </div>
+
+        <div class="locations-list" id="locations-container"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        /* ===== مركز الانطلاق الرئيسي (المصنع) ===== */
+        const factory = {
+            name: "مصنع الغذاء النوعي للمنتجات الغذائية",
+            lat: 24.5622972,
+            lng: 46.8711851,
+            code: "FACTORY-MAIN",
+            gmapsUrl: "https://maps.app.goo.gl/FZF5MhUrrzaoiuQh7"
+        };
+
+        /* ===== الفروع (الإحداثيات مستخرجة فعلياً من روابط خرائط جوجل) ===== */
+        const points = [
+            // الجنوب
+            { code: "MW-017", name: "فرع العزيزية", dir: "جنوب", dirClass: "south", color: "#ef4444", lat: 24.5731424, lng: 46.7856397, url: "https://maps.app.goo.gl/n3krL7v4pooKuwTk8" },
+            { code: "MW-014", name: "فرع المنصورة", dir: "جنوب", dirClass: "south", color: "#ef4444", lat: 24.6089225, lng: 46.7501307, url: "https://goo.gl/maps/8XSpanHSTDvP5yaZ8" },
+
+            // الشرق
+            { code: "MW-002", name: "فرع الفيحاء", dir: "شرق", dirClass: "east", color: "#f97316", lat: 24.6832467, lng: 46.7980760, url: "https://maps.app.goo.gl/qGm6e3U8k4Nvd99v5" },
+            { code: "MW-001", name: "فرع الأندلس", dir: "شرق", dirClass: "east", color: "#f97316", lat: 24.7428169, lng: 46.7916727, url: "https://goo.gl/maps/912smumzGo2y75tE6" },
+            { code: "MW-001B", name: "مقمر الأندلس", dir: "شرق", dirClass: "east", color: "#f97316", lat: 24.7428169, lng: 46.7916727, dx: 26, url: "https://goo.gl/maps/912smumzGo2y75tE6" },
+            { code: "MW-009", name: "فرع اشبيليا", dir: "شرق", dirClass: "east", color: "#f97316", lat: 24.7848254, lng: 46.7706442, url: "https://goo.gl/maps/XnjbESgTJuAFvE8J7" },
+            { code: "MW-013", name: "فرع الرمال", dir: "شرق", dirClass: "east", color: "#f97316", lat: 24.8333240, lng: 46.8101263, url: "https://goo.gl/maps/nk8EiFKjrrotLs149" },
+
+            // الشمال
+            { code: "MW-036", name: "فرع العارض", dir: "شمال", dirClass: "north", color: "#3b82f6", lat: 24.8689419, lng: 46.6200070, url: "https://maps.app.goo.gl/JFev91jQWWSD1xE38" },
+            { code: "MW-019", name: "فرع الياسمين", dir: "شمال", dirClass: "north", color: "#3b82f6", lat: 24.8144101, lng: 46.6316568, url: "https://maps.app.goo.gl/GwyEv1ocgPEgLCL5A" },
+            { code: "MW-004", name: "فرع المروج", dir: "شمال", dirClass: "north", color: "#3b82f6", lat: 24.7588348, lng: 46.6631198, url: "https://goo.gl/maps/pg55hda2ycSdBKFZA" },
+            { code: "MW-020", name: "فرع الدرعية", dir: "شمال", dirClass: "north", color: "#3b82f6", lat: 24.7527475, lng: 46.5772944, url: "https://goo.gl/maps/CfKVMTjXEJn9jajS8" },
+
+            // الغرب
+            { code: "MW-006", name: "فرع لبن", dir: "غرب", dirClass: "west", color: "#a855f7", lat: 24.6449367, lng: 46.5494407, url: "https://goo.gl/maps/TDZKvXuHr9dxdWkE7" },
+            { code: "MW-016", name: "فرع السويدي", dir: "غرب", dirClass: "west", color: "#a855f7", lat: 24.5760850, lng: 46.6623688, url: "https://goo.gl/maps/yKSprrScwdKrSxks9" },
+
+            // الخرج
+            { code: "MW-034", name: "فرع الخرج", dir: "الخرج", dirClass: "alkharj", color: "#14b8a6", lat: 24.1657191, lng: 47.3133966, url: "https://maps.app.goo.gl/vNJXXQTb4ZxkArMM9" }
+        ];
+
+        /* ===== أدوات مساعدة ===== */
+        function haversine(a, b) {
+            const R = 6371;
+            const dLat = (b.lat - a.lat) * Math.PI / 180;
+            const dLng = (b.lng - a.lng) * Math.PI / 180;
+            const s = Math.sin(dLat / 2) ** 2 +
+                      Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+        }
+
+        // رابط الملاحة الميدانية: من المصنع إلى الفرع
+        function navUrl(pt) {
+            return `https://www.google.com/maps/dir/?api=1&origin=${factory.lat},${factory.lng}&destination=${pt.lat},${pt.lng}&travelmode=driving`;
+        }
+
+        /* ===== الخريطة ===== */
+        const map = L.map('map', { zoomControl: false, attributionControl: true })
+            .setView([24.5622972, 46.8711851], 10);
+
+        L.control.zoom({ position: 'topleft' }).addTo(map);
+
+        const googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: 'خرائط جوجل — Google Hybrid'
+        });
+        const googleStreets = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: 'خرائط جوجل — Google Streets'
+        });
+        const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: 'أقمار صناعية — Google Satellite'
+        });
+
+        googleHybrid.addTo(map);
+
+        L.control.layers({
+            "🗺️ هجين (أقمار + شوارع)": googleHybrid,
+            "🏙️ شوارع قياسي": googleStreets,
+            "🛰️ أقمار صناعية صرفة": googleSat
+        }, null, { position: 'topleft' }).addTo(map);
+
+        /* ===== الحالة ===== */
+        let markers = [];
+        let polylines = [];
+        let activeRouteLine = null;
+        let activeRouteGlow = null;
+
+        function createIcon(colorClass, pulse = false, dx = 0) {
+            return L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="custom-pin ${colorClass}${pulse ? ' pulse' : ''}"></div>`,
+                iconSize: [34, 34],
+                iconAnchor: [17 - dx, 34],
+                popupAnchor: [dx, -32]
+            });
+        }
+
+        const factoryMarker = L.marker([factory.lat, factory.lng], {
+            icon: createIcon('pin-factory', true),
+            draggable: false,
+            keyboard: false,
+            title: factory.name
+        }).addTo(map);
+
+        factoryMarker.bindPopup(`
+            <div style="text-align:right; font-family:'Cairo'; color:#0f172a; padding:4px; min-width:200px;">
+                <strong style="color:#064e3b; font-size:1.02rem; display:block;">🏭 ${factory.name}</strong>
+                <span style="font-size:0.78rem; color:#475569;">مركز التغذية الرئيسي والإمداد</span>
+                <div style="font-size:0.7rem; color:#94a3b8; direction:ltr; text-align:right; margin-top:3px;">24.5623, 46.8712</div>
+                <hr style="margin:8px 0; border:0; border-top:1px solid #e2e8f0;">
+                <a href="${factory.gmapsUrl}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:700; font-size:0.82rem; text-decoration:none;">📍 فتح موقع المصنع في خرائط جوجل</a>
+            </div>
+        `);
+
+        function focusFactory() {
+            map.flyTo([factory.lat, factory.lng], 14, { duration: 1.1 });
+            setTimeout(() => factoryMarker.openPopup(), 700);
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('.location-item').forEach(el => el.classList.remove('selected'));
+        }
+
+        function selectBranch(index, openPopup) {
+            const pt = points[index];
+            if (!pt) return;
+
+            if (activeRouteLine) map.removeLayer(activeRouteLine);
+            if (activeRouteGlow) map.removeLayer(activeRouteGlow);
+
+            activeRouteGlow = L.polyline([[factory.lat, factory.lng], [pt.lat, pt.lng]], {
+                color: pt.color, weight: 14, opacity: 0.22, lineCap: 'round'
+            }).addTo(map);
+
+            activeRouteLine = L.polyline([[factory.lat, factory.lng], [pt.lat, pt.lng]], {
+                color: '#ffffff', weight: 4, opacity: 0.95, dashArray: '10, 12'
+            }).addTo(map);
+
+            const bounds = L.latLngBounds([[factory.lat, factory.lng], [pt.lat, pt.lng]]);
+            map.flyToBounds(bounds, { padding: [70, 70], duration: 1.1 });
+
+            clearSelection();
+            const el = document.getElementById(`item-${pt.code}`);
+            if (el) el.classList.add('selected');
+            if (openPopup) setTimeout(() => markers[index] && markers[index].openPopup(), 750);
+        }
+
+        function renderNetwork(filter = 'all') {
+            const container = document.getElementById('locations-container');
+            container.innerHTML = '';
+
+            markers.forEach(m => map.removeLayer(m));
+            polylines.forEach(p => map.removeLayer(p));
+            if (activeRouteLine) map.removeLayer(activeRouteLine);
+            if (activeRouteGlow) map.removeLayer(activeRouteGlow);
+            activeRouteLine = null;
+            activeRouteGlow = null;
+            markers = [];
+            polylines = [];
+
+            let count = 0;
+            points.forEach((pt, index) => {
+                if (filter !== 'all' && pt.dir !== filter) return;
+                count++;
+
+                const km = haversine(factory, pt).toFixed(1);
+
+                const item = document.createElement('div');
+                item.className = `location-item ${pt.dirClass}`;
+                item.id = `item-${pt.code}`;
+                item.onclick = () => selectBranch(index, false);
+                item.innerHTML = `
+                    <div class="loc-header">
+                        <span class="loc-title">${pt.name}</span>
+                        <span class="loc-code">${pt.code}</span>
+                    </div>
+                    <div class="loc-meta">
+                        <span><i class="fa-solid fa-compass"></i> المحور: <b>${pt.dir}</b></span>
+                        <span><i class="fa-solid fa-road"></i> <b>${km} كم</b> من المصنع</span>
+                    </div>
+                    <div class="action-group">
+                        <button class="btn-act route" onclick="event.stopPropagation(); selectBranch(${index}, false);">
+                            <i class="fa-solid fa-draw-polygon"></i> عرض المسار
+                        </button>
+                        <a href="${navUrl(pt)}" target="_blank" rel="noopener" class="btn-act gmaps" onclick="event.stopPropagation();">
+                            <i class="fa-solid fa-diamond-turn-right"></i> ملاحة جوجل
+                        </a>
+                    </div>
+                    <a class="place-link" href="${pt.url}" target="_blank" rel="noopener" onclick="event.stopPropagation();">
+                        <i class="fa-solid fa-location-dot"></i> عرض موقع الفرع
+                    </a>
+                `;
+                container.appendChild(item);
+
+                const marker = L.marker([pt.lat, pt.lng], {
+                    icon: createIcon(`pin-${pt.dirClass}`, false, pt.dx || 0),
+                    draggable: false,
+                    keyboard: false,
+                    title: `${pt.name} — ${pt.code}`
+                }).addTo(map);
+
+                marker.bindPopup(`
+                    <div style="text-align:right; font-family:'Cairo'; color:#0f172a; padding:4px; min-width:210px;">
+                        <strong style="font-size:1rem; color:${pt.color}; display:block;">${pt.name} (${pt.code})</strong>
+                        <span style="font-size:0.78rem; color:#64748b;">محور التوزيع: ${pt.dir} — المسافة ${km} كم</span>
+                        <hr style="margin:8px 0; border:0; border-top:1px solid #e2e8f0;">
+                        <a href="${navUrl(pt)}" target="_blank" rel="noopener" style="color:#059669; font-weight:800; font-size:0.85rem; text-decoration:none;">🧭 بدء الملاحة من المصنع</a><br>
+                        <a href="${pt.url}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:700; font-size:0.8rem; text-decoration:none; display:inline-block; margin-top:6px;">📍 موقع الفرع على الخريطة</a>
+                    </div>
+                `);
+
+                marker.on('click', () => { clearSelection(); item.classList.add('selected'); });
+
+                const line = L.polyline([[factory.lat, factory.lng], [pt.lat, pt.lng]], {
+                    color: pt.color, weight: 2.5, opacity: 0.55, dashArray: '6, 8'
+                }).addTo(map);
+
+                markers.push(marker);
+                polylines.push(line);
+            });
+
+            document.getElementById('total-count').innerText = count;
+
+            const shown = points.filter((_, i) => filter === 'all' || points[i].dir === filter);
+            if (shown.length) {
+                map.flyToBounds(L.latLngBounds(shown.map(p => [p.lat, p.lng])), { padding: [60, 60], duration: 0.9 });
+            }
+        }
+
+        function filterDirection(dir, btn) {
+            document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderNetwork(dir);
+        }
+
+        map.eachLayer(layer => {
+            if (layer.dragging) { layer.dragging.disable(); layer.options.draggable = false; }
+        });
+
+        renderNetwork('all');
+    </script>
+</body>
+</html>
